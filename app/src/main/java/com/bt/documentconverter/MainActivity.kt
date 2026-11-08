@@ -174,7 +174,7 @@ class MainActivity : ComponentActivity() {
                     "Merge PDF" to Icons.Default.CallMerge,
                     "PDF Page Tools" to Icons.Default.PictureAsPdf,
                     "Crop PDF" to Icons.Default.Crop,
-                    "Add Watermark" to Icons.Default.Watermark,
+                    "Add Watermark" to Icons.Default.Edit,
                     "Optimize PDF" to Icons.Default.Compress
                 )
 
