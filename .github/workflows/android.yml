@@ -15,66 +15,70 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Download repository source
       - name: Checkout Source
         uses: actions/checkout@v4
 
-      # 2. Extract Android source ZIP
-      - name: Extract Android Source ZIP
+      - name: Extract Latest Native Android Source
+        shell: bash
         run: |
-          ZIP_FILE="$(find . -maxdepth 1 -type f -iname '*.zip' | head -n 1)"
+          set -euo pipefail
 
-          if [ -z "$ZIP_FILE" ]; then
-            echo "ERROR: Source ZIP not found in repository root."
+          ZIP_FILE="$GITHUB_WORKSPACE/BT_Document_Native_Android_Source.zip"
+
+          if [ ! -f "$ZIP_FILE" ]; then
+            echo "::error::Native Android Source ZIP not found!"
             exit 1
           fi
 
-          echo "Extracting $ZIP_FILE"
+          if ! unzip -Z1 "$ZIP_FILE" | grep -Eq '(^|/)(settings.gradle.kts|settings.gradle)$'; then
+            echo "::error::Selected ZIP is not a valid Android Gradle project."
+            exit 1
+          fi
+
           mkdir -p extracted
           unzip -o "$ZIP_FILE" -d extracted
 
-      # 3. Locate Gradle project
       - name: Locate Android Project
+        shell: bash
         run: |
-          PROJECT_DIR="$(find "$GITHUB_WORKSPACE/extracted" -type f \( -name settings.gradle.kts -o -name settings.gradle \) -print -quit | xargs -r dirname)"
+          set -euo pipefail
 
-          if [ -z "$PROJECT_DIR" ]; then
-            echo "ERROR: Gradle settings file not found."
-            find extracted -maxdepth 5 -type f | head -200
+          SETTINGS_FILE=$(find extracted -type f \
+            \( -name settings.gradle.kts -o -name settings.gradle \) \
+            -print -quit)
+
+          if [ -z "$SETTINGS_FILE" ]; then
+            echo "::error::Gradle settings file not found!"
             exit 1
           fi
 
+          PROJECT_DIR=$(dirname "$SETTINGS_FILE")
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-          echo "Found project: $PROJECT_DIR"
 
-      # 4. Setup Java 17
+          echo "Android project found: $PROJECT_DIR"
+
       - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      # 5. Setup Gradle
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
-      # 6. Verify Android SDK (no obsolete tools package)
       - name: Verify Android SDK
         run: |
           echo "ANDROID_HOME=$ANDROID_HOME"
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
           ls "$ANDROID_HOME/platforms"
           ls "$ANDROID_HOME/build-tools"
 
-      # 7. Build Debug APK
       - name: Build Debug APK
         run: |
           cd "$PROJECT_DIR"
           gradle --no-daemon assembleDebug
 
-      # 8. Upload APK
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
